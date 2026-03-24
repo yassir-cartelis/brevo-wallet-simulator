@@ -89,7 +89,7 @@ export const BREVO_FIELD_OPTIONS = Object.entries(BREVO_SCHEMA).map(([key, schem
   group: schema.group
 }))
 
-export const FIELD_TYPES = ["string", "number", "boolean", "date"]
+export const FIELD_TYPES = ["string", "number", "boolean", "date", "barcode", "qrcode"]
 
 export const MEMBER_LEVEL_COLORS = {
   "Bronze": "#cd7f32",

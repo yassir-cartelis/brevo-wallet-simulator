@@ -1,11 +1,17 @@
 import React, { useState } from 'react'
-import { BREVO_FIELD_OPTIONS, FIELD_TYPES } from '../data/brevoSchema.js'
+import { BREVO_FIELD_OPTIONS, FIELD_TYPES, BREVO_SCHEMA } from '../data/brevoSchema.js'
 
 let fieldCounter = 3
+
+function isCustomField(brevoPath) {
+  return brevoPath && !BREVO_SCHEMA[brevoPath]
+}
 
 function FieldRow({ field, mapping, error, onChange, onMappingChange, onRemove }) {
   const errorType = error?.type
   const errorMsg = error?.message
+  const mappingIsCustom = isCustomField(mapping)
+  const isCodeType = field.type === 'barcode' || field.type === 'qrcode'
 
   return (
     <div className={`si-field ${errorType === 'error' ? 'si-field--error' : errorType === 'warning' ? 'si-field--warning' : ''}`}>
@@ -37,8 +43,8 @@ function FieldRow({ field, mapping, error, onChange, onMappingChange, onRemove }
             ))}
           </select>
           <input
-            className={`si-input si-input--value ${errorType === 'error' ? 'si-input--invalid' : ''}`}
-            placeholder="valeur de test"
+            className={`si-input si-input--value ${errorType === 'error' ? 'si-input--invalid' : ''} ${isCodeType ? 'si-input--mono' : ''}`}
+            placeholder={isCodeType ? 'token / valeur test' : 'valeur de test'}
             value={field.value}
             onChange={e => onChange(field.id, 'value', e.target.value)}
           />
@@ -56,22 +62,27 @@ function FieldRow({ field, mapping, error, onChange, onMappingChange, onRemove }
       {/* Mapping row */}
       <div className="si-field__mapping">
         <span className="si-field__arrow">↳</span>
-        <select
-          className={`si-select si-select--mapping ${!mapping ? 'si-select--empty' : ''}`}
-          value={mapping || ''}
-          onChange={e => onMappingChange(field.id, e.target.value || null)}
-          disabled={!field.active}
-        >
-          <option value="">— Choisir un champ Brevo —</option>
-          {BREVO_FIELD_OPTIONS.map(opt => (
-            <option key={opt.value} value={opt.value}>
-              {opt.value}{opt.required ? ' *' : ''} — {opt.description}
-            </option>
-          ))}
-        </select>
+        <div className="si-field__mapping-combo">
+          <input
+            list={`brevo-fields-${field.id}`}
+            className={`si-input si-input--mapping ${!mapping ? 'si-input--empty' : ''} ${mappingIsCustom ? 'si-input--custom' : ''}`}
+            placeholder="Champ Brevo — ex: data.status"
+            value={mapping || ''}
+            onChange={e => onMappingChange(field.id, e.target.value || null)}
+            disabled={!field.active}
+            autoComplete="off"
+          />
+          <datalist id={`brevo-fields-${field.id}`}>
+            {BREVO_FIELD_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>
+                {opt.description}{opt.required ? ' (requis)' : ''}
+              </option>
+            ))}
+          </datalist>
+        </div>
         {mapping && (
-          <span className="si-field__mapping-type">
-            {BREVO_FIELD_OPTIONS.find(o => o.value === mapping)?.type}
+          <span className={`si-field__mapping-badge ${mappingIsCustom ? 'si-field__mapping-badge--custom' : 'si-field__mapping-badge--schema'}`}>
+            {mappingIsCustom ? 'custom' : BREVO_FIELD_OPTIONS.find(o => o.value === mapping)?.type || ''}
           </span>
         )}
       </div>
@@ -87,8 +98,6 @@ function FieldRow({ field, mapping, error, onChange, onMappingChange, onRemove }
 }
 
 export default function SIPanel({ siFields, mappings, validationResult, onFieldsChange, onMappingsChange }) {
-  const [projectName, setProjectName] = useState('Mon projet')
-
   function addField() {
     const id = `field_${++fieldCounter}`
     onFieldsChange([...siFields, {
@@ -115,7 +124,7 @@ export default function SIPanel({ siFields, mappings, validationResult, onFields
     onMappingsChange({ ...mappings, [fieldId]: brevoPath })
   }
 
-  const { siErrors = {}, walletErrors = [] } = validationResult || {}
+  const { siErrors = {} } = validationResult || {}
   const orphanCount = siFields.filter(f => f.active && !mappings[f.id]).length
   const errorCount = Object.values(siErrors).filter(e => e.type === 'error').length
 
@@ -137,7 +146,6 @@ export default function SIPanel({ siFields, mappings, validationResult, onFields
       </div>
 
       <div className="panel__body">
-        {/* Fields list */}
         <div className="si-fields">
           {siFields.length === 0 && (
             <div className="si-empty">

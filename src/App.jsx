@@ -22,20 +22,25 @@ const DEFAULT_MAPPINGS = {
 
 let logCounter = 0
 
+function slugify(str) {
+  return str.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+}
+
 export default function App() {
   const [siFields, setSiFields] = useState(DEFAULT_FIELDS)
   const [mappings, setMappings] = useState(DEFAULT_MAPPINGS)
   const [cardConfig, setCardConfig] = useState({ color: '#6366f1', brandName: 'Ma Marque' })
-  const [appState, setAppState] = useState('idle') // idle | sending | success | error
+  const [appState, setAppState] = useState('idle')
   const [logs, setLogs] = useState([])
   const [walletData, setWalletData] = useState(null)
   const [lastResponse, setLastResponse] = useState(null)
   const [cardId, setCardId] = useState('card_42')
+  const [programId, setProgramId] = useState('ma-marque')
   const [projectName, setProjectName] = useState('Mon projet')
   const [editingCardId, setEditingCardId] = useState(false)
+  const [editingProgramId, setEditingProgramId] = useState(false)
   const [editingProject, setEditingProject] = useState(false)
 
-  // Derived: validation + payload, computed live
   const validationResult = useMemo(
     () => validate(siFields, mappings),
     [siFields, mappings]
@@ -46,14 +51,23 @@ export default function App() {
     [siFields, mappings]
   )
 
+  // fieldMeta: brevoPath → { type, siName } — used by WalletCard to render barcode/qr/custom fields
+  const fieldMeta = useMemo(() => {
+    const meta = {}
+    siFields.forEach(f => {
+      if (f.active && mappings[f.id]) {
+        meta[mappings[f.id]] = { type: f.type, siName: f.name }
+      }
+    })
+    return meta
+  }, [siFields, mappings])
+
   const canSend = !validationResult.isBlocking && appState !== 'sending'
+  const endpoint = `/v3/wallet/programs/${programId}/cards/${cardId}`
 
   const handleSend = useCallback(async () => {
     if (!canSend) return
-
     setAppState('sending')
-
-    // Simulate network latency
     await new Promise(r => setTimeout(r, 600))
 
     const hasErrors = validationResult.walletErrors.length > 0
@@ -62,15 +76,7 @@ export default function App() {
       const errorResponse = buildErrorResponse(validationResult.walletErrors)
       setLastResponse(errorResponse)
       setAppState('error')
-
-      addLog({
-        status: 422,
-        endpoint: `/v3/wallet/cards/${cardId}`,
-        request: payload,
-        response: errorResponse,
-        fieldCount: siFields.filter(f => f.active).length
-      })
-
+      addLog({ status: 422, endpoint, request: payload, response: errorResponse, fieldCount: siFields.filter(f => f.active).length })
       await new Promise(r => setTimeout(r, 2000))
       setAppState('idle')
     } else {
@@ -78,26 +84,14 @@ export default function App() {
       setLastResponse(successResponse)
       setWalletData(payload)
       setAppState('success')
-
-      addLog({
-        status: 200,
-        endpoint: `/v3/wallet/cards/${cardId}`,
-        request: payload,
-        response: successResponse,
-        fieldCount: siFields.filter(f => f.active).length
-      })
-
+      addLog({ status: 200, endpoint, request: payload, response: successResponse, fieldCount: siFields.filter(f => f.active).length })
       await new Promise(r => setTimeout(r, 2500))
       setAppState('idle')
     }
-  }, [canSend, payload, cardId, siFields, validationResult])
+  }, [canSend, payload, endpoint, siFields, validationResult, cardId])
 
   function addLog(entry) {
-    setLogs(prev => [...prev, {
-      id: ++logCounter,
-      timestamp: new Date().toISOString(),
-      ...entry
-    }])
+    setLogs(prev => [...prev, { id: ++logCounter, timestamp: new Date().toISOString(), ...entry }])
   }
 
   function handleExport() {
@@ -106,13 +100,15 @@ export default function App() {
       generated_at: new Date().toISOString(),
       project: projectName,
       flux: 'UPDATE_SI_TO_WALLET',
-      endpoint: `PATCH /v3/wallet/cards/${cardId}`,
+      endpoint: `PATCH ${endpoint}`,
+      program_id: programId,
       si_fields: siFields
         .filter(f => f.active && mappings[f.id])
         .map(f => ({
           si_field: f.name,
           type: f.type,
           maps_to: mappings[f.id],
+          is_custom_brevo_field: !BREVO_SCHEMA[mappings[f.id]],
           example_value: f.value
         })),
       orphan_fields: siFields
@@ -133,9 +129,14 @@ export default function App() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `contrat-wallet-${projectName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.json`
+    a.download = `contrat-wallet-${slugify(projectName)}-${Date.now()}.json`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  // Sync programId when brand name changes (only if programId was never manually edited)
+  function handleCardConfigChange(config) {
+    setCardConfig(config)
   }
 
   const { isBlocking, walletErrors, siErrors } = validationResult
@@ -144,7 +145,6 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* Header */}
       <header className="app-header">
         <div className="app-header__left">
           <div className="app-logo">
@@ -164,11 +164,7 @@ export default function App() {
               onKeyDown={e => e.key === 'Enter' && setEditingProject(false)}
             />
           ) : (
-            <button
-              className="header-project"
-              onClick={() => setEditingProject(true)}
-              title="Modifier le nom du projet"
-            >
+            <button className="header-project" onClick={() => setEditingProject(true)}>
               {projectName}
               <span className="header-project__edit">✎</span>
             </button>
@@ -178,7 +174,26 @@ export default function App() {
         <div className="app-header__center">
           <div className="header-endpoint">
             <span className="endpoint-method">PATCH</span>
-            <span className="endpoint-path">/v3/wallet/cards/</span>
+            <span className="endpoint-path">/v3/wallet/programs/</span>
+
+            {editingProgramId ? (
+              <input
+                className="endpoint-input"
+                value={programId}
+                autoFocus
+                onChange={e => setProgramId(e.target.value)}
+                onBlur={() => setEditingProgramId(false)}
+                onKeyDown={e => e.key === 'Enter' && setEditingProgramId(false)}
+              />
+            ) : (
+              <button className="endpoint-segment" onClick={() => setEditingProgramId(true)} title="Modifier le program ID">
+                {programId}
+                <span className="endpoint-segment__edit">✎</span>
+              </button>
+            )}
+
+            <span className="endpoint-path">/cards/</span>
+
             {editingCardId ? (
               <input
                 className="endpoint-input"
@@ -189,20 +204,15 @@ export default function App() {
                 onKeyDown={e => e.key === 'Enter' && setEditingCardId(false)}
               />
             ) : (
-              <button
-                className="endpoint-cardid"
-                onClick={() => setEditingCardId(true)}
-                title="Modifier le cardId"
-              >
+              <button className="endpoint-segment" onClick={() => setEditingCardId(true)} title="Modifier le cardId">
                 {cardId}
-                <span className="endpoint-cardid__edit">✎</span>
+                <span className="endpoint-segment__edit">✎</span>
               </button>
             )}
           </div>
         </div>
 
         <div className="app-header__right">
-          {/* Status indicators */}
           <div className="header-status">
             {errorCount > 0 && (
               <span className="status-pill status-pill--error">
@@ -215,9 +225,7 @@ export default function App() {
               </span>
             )}
             {errorCount === 0 && warningCount === 0 && siFields.some(f => f.active) && (
-              <span className="status-pill status-pill--success">
-                ✓ Prêt
-              </span>
+              <span className="status-pill status-pill--success">✓ Prêt</span>
             )}
           </div>
 
@@ -225,7 +233,6 @@ export default function App() {
             className="btn-export"
             onClick={handleExport}
             disabled={Object.keys(payload).length === 0}
-            title="Exporter le contrat d'interface en JSON"
           >
             ↓ Exporter contrat
           </button>
@@ -234,7 +241,6 @@ export default function App() {
             className={`btn-send ${!canSend ? 'btn-send--disabled' : ''} ${appState === 'sending' ? 'btn-send--sending' : ''}`}
             onClick={handleSend}
             disabled={!canSend}
-            title={isBlocking ? 'Corrigez les erreurs avant d\'envoyer' : 'Envoyer la mise à jour simulée'}
           >
             {appState === 'sending' ? (
               <><span className="btn-spinner" /> Envoi…</>
@@ -245,7 +251,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main 3-panel layout */}
       <main className="app-main">
         <SIPanel
           siFields={siFields}
@@ -257,25 +262,25 @@ export default function App() {
 
         <FluxZone
           appState={appState}
+          programId={programId}
           cardId={cardId}
           payload={payload}
-          lastResponse={lastResponse}
         />
 
         <WalletPanel
           walletData={walletData}
           payload={payload}
           cardConfig={cardConfig}
-          onCardConfigChange={setCardConfig}
+          onCardConfigChange={handleCardConfigChange}
           validationResult={validationResult}
           appState={appState}
           lastResponse={lastResponse}
           siFields={siFields}
           mappings={mappings}
+          fieldMeta={fieldMeta}
         />
       </main>
 
-      {/* Log panel */}
       <LogPanel logs={logs} />
     </div>
   )

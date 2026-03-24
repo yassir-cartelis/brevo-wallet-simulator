@@ -2,8 +2,8 @@ import React, { useState } from 'react'
 import WalletCard from './WalletCard.jsx'
 import { BREVO_SCHEMA } from '../data/brevoSchema.js'
 
-function JsonViewer({ data, label }) {
-  const [expanded, setExpanded] = useState(true)
+function JsonViewer({ data, label, defaultExpanded = true }) {
+  const [expanded, setExpanded] = useState(defaultExpanded)
   const json = JSON.stringify(data, null, 2)
 
   return (
@@ -22,7 +22,6 @@ function JsonViewer({ data, label }) {
 }
 
 function JsonHighlight({ json }) {
-  // Simple syntax highlighting via spans
   const highlighted = json
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -37,9 +36,12 @@ function JsonHighlight({ json }) {
 }
 
 function ValidationPanel({ validationResult, mappings, siFields }) {
-  const { walletErrors = [], walletOk = [], siErrors = {} } = validationResult || {}
-  const allBrevoFields = Object.keys(BREVO_SCHEMA)
+  const { walletErrors = [], walletOk = [] } = validationResult || {}
   const hasErrors = walletErrors.length > 0
+
+  // Separate standard schema fields from custom ones
+  const standardOk = walletOk.filter(f => BREVO_SCHEMA[f])
+  const customOk = walletOk.filter(f => !BREVO_SCHEMA[f])
 
   return (
     <div className="validation-panel">
@@ -52,10 +54,10 @@ function ValidationPanel({ validationResult, mappings, siFields }) {
       </div>
 
       <div className="validation-panel__fields">
-        {/* Required fields first */}
+        {/* Required fields */}
         {Object.entries(BREVO_SCHEMA)
           .filter(([, s]) => s.required)
-          .map(([field, schema]) => {
+          .map(([field]) => {
             const isMapped = walletOk.includes(field)
             const isError = walletErrors.some(e => e.field === field)
             return (
@@ -71,11 +73,20 @@ function ValidationPanel({ validationResult, mappings, siFields }) {
           })
         }
 
-        {/* Optional mapped fields */}
-        {walletOk.filter(f => !BREVO_SCHEMA[f]?.required).map(field => (
+        {/* Optional mapped standard fields */}
+        {standardOk.filter(f => !BREVO_SCHEMA[f]?.required).map(field => (
           <div key={field} className="vf-row vf-row--ok">
             <span className="vf-status vf-status--ok">✓</span>
             <span className="vf-name mono">{field}</span>
+          </div>
+        ))}
+
+        {/* Custom mapped fields */}
+        {customOk.map(field => (
+          <div key={field} className="vf-row vf-row--custom">
+            <span className="vf-status vf-status--ok">✓</span>
+            <span className="vf-name mono">{field}</span>
+            <span className="vf-tag vf-tag--custom">custom</span>
           </div>
         ))}
       </div>
@@ -92,7 +103,8 @@ export default function WalletPanel({
   appState,
   lastResponse,
   siFields,
-  mappings
+  mappings,
+  fieldMeta
 }) {
   const [cardVisible, setCardVisible] = useState(true)
   const [showConfig, setShowConfig] = useState(false)
@@ -167,16 +179,13 @@ export default function WalletPanel({
               walletData={walletData}
               cardConfig={cardConfig}
               animating={animating}
+              fieldMeta={fieldMeta}
             />
             {appState === 'success' && (
-              <div className="wallet-card-badge wallet-card-badge--success">
-                ✓ Mise à jour reçue
-              </div>
+              <div className="wallet-card-badge wallet-card-badge--success">✓ Mise à jour reçue</div>
             )}
             {isError && (
-              <div className="wallet-card-badge wallet-card-badge--error">
-                ✕ Payload rejeté
-              </div>
+              <div className="wallet-card-badge wallet-card-badge--error">✕ Payload rejeté</div>
             )}
           </div>
         )}
@@ -190,7 +199,7 @@ export default function WalletPanel({
 
         {/* Payload preview */}
         {Object.keys(payload).length > 0 && (
-          <JsonViewer data={payload} label="Payload qui sera envoyé" />
+          <JsonViewer data={payload} label="Payload qui sera envoyé" defaultExpanded={true} />
         )}
 
         {/* Last response */}
@@ -198,6 +207,7 @@ export default function WalletPanel({
           <JsonViewer
             data={lastResponse}
             label={`Réponse simulée — ${lastResponse.code || 200}`}
+            defaultExpanded={false}
           />
         )}
       </div>

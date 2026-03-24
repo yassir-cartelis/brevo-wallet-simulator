@@ -1,33 +1,33 @@
-import React, { useEffect, useRef } from 'react'
+import React from 'react'
 
 function PayloadChip({ payload }) {
   const keys = Object.keys(payload)
   if (keys.length === 0) return <span className="flux-chip flux-chip--empty">{ }</span>
   const preview = keys.slice(0, 2).map(k => `${k}: …`).join(', ')
   const more = keys.length > 2 ? ` +${keys.length - 2}` : ''
-  return (
-    <span className="flux-chip">
-      {`{ ${preview}${more} }`}
-    </span>
-  )
+  return <span className="flux-chip">{`{ ${preview}${more} }`}</span>
 }
 
-export default function FluxZone({ appState, cardId, payload, lastResponse }) {
+export default function FluxZone({ appState, programId, cardId, payload }) {
   const isSending = appState === 'sending'
   const isSuccess = appState === 'success'
   const isError = appState === 'error'
   const isActive = isSending || isSuccess || isError
 
   const statusCode = isSuccess ? 200 : isError ? 422 : null
-  const statusLabel = isSuccess ? 'OK' : isError ? 'Unprocessable Entity' : null
+  const statusLabel = isSuccess ? 'OK' : isError ? 'Unprocessable' : null
 
   return (
     <div className="flux-zone">
-      {/* Top label */}
+      {/* Endpoint */}
       <div className="flux-zone__endpoint">
         <span className="flux-method">PATCH</span>
-        <span className="flux-path">/v3/wallet/cards/</span>
-        <span className="flux-card-id">{cardId || '{cardId}'}</span>
+        <div className="flux-url">
+          <span className="flux-path">/v3/wallet/programs/</span>
+          <span className="flux-segment">{programId || '{programId}'}</span>
+          <span className="flux-path">/cards/</span>
+          <span className="flux-segment">{cardId || '{cardId}'}</span>
+        </div>
       </div>
 
       {/* Animated flow channel */}
@@ -68,19 +68,15 @@ export default function FluxZone({ appState, cardId, payload, lastResponse }) {
           <div className="flux-arrow__track">
             <div className="flux-arrow__head">‹</div>
             <div className="flux-arrow__beam">
-              {isSuccess && (
-                <span className="flux-chip flux-chip--success">200 OK</span>
-              )}
-              {isError && (
-                <span className="flux-chip flux-chip--error">422 Error</span>
-              )}
+              {isSuccess && <span className="flux-chip flux-chip--success">200 OK</span>}
+              {isError && <span className="flux-chip flux-chip--error">422 Error</span>}
             </div>
           </div>
           <div className="flux-arrow__label">Réponse</div>
         </div>
       </div>
 
-      {/* Brevo logo badge */}
+      {/* Brevo badge */}
       <div className="flux-brevo-badge">
         <div className="flux-brevo-dot" />
         <span>Brevo API</span>

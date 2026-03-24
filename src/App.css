@@ -82,22 +82,23 @@
   margin-right: 4px;
 }
 .endpoint-path { color: var(--text-muted); }
-.endpoint-cardid {
+.endpoint-segment {
   background: none; color: var(--accent);
   font-family: inherit; font-size: inherit;
-  display: flex; align-items: center; gap: 4px;
+  display: flex; align-items: center; gap: 3px;
   border: 1px solid transparent;
-  border-radius: 4px; padding: 0 4px;
-  transition: all 0.15s;
+  border-radius: 4px; padding: 1px 4px;
+  transition: all 0.15s; cursor: pointer;
 }
-.endpoint-cardid:hover { border-color: var(--accent); }
-.endpoint-cardid__edit { font-size: 10px; opacity: 0.5; }
+.endpoint-segment:hover { border-color: var(--accent); background: var(--accent-dim); }
+.endpoint-segment__edit { font-size: 9px; opacity: 0.5; }
 .endpoint-input {
   background: transparent;
   border: none; border-bottom: 1px solid var(--accent);
   color: var(--accent);
   font-family: inherit; font-size: inherit;
-  width: 100px;
+  width: 90px;
+  padding: 0 2px;
 }
 
 .header-status { display: flex; align-items: center; gap: 6px; }
@@ -237,6 +238,33 @@
   flex-shrink: 0;
 }
 
+.si-field__mapping-combo {
+  flex: 1; position: relative;
+}
+
+.si-input--mapping {
+  width: 100%;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+}
+.si-input--empty { color: var(--text-dim); }
+.si-input--custom {
+  color: #a78bfa;
+  border-color: rgba(167, 139, 250, 0.35);
+}
+.si-input--mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+}
+
+.si-field__mapping-badge {
+  font-size: 9px; padding: 2px 6px; border-radius: 3px;
+  font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+.si-field__mapping-badge--schema { background: var(--accent-dim); color: var(--accent); }
+.si-field__mapping-badge--custom { background: rgba(167,139,250,0.15); color: #a78bfa; border: 1px solid rgba(167,139,250,0.3); }
+
 .si-field__msg {
   margin-top: 6px;
   padding: 4px 8px; border-radius: 4px;
@@ -325,11 +353,17 @@
 
 .flux-zone__endpoint {
   display: flex; flex-direction: column; align-items: center;
-  gap: 2px; text-align: center;
+  gap: 4px; text-align: center; width: 100%;
 }
 .flux-method { color: var(--warning); font-weight: 700; font-size: 11px; letter-spacing: 0.05em; }
-.flux-path { color: var(--text-dim); font-size: 10px; font-family: 'JetBrains Mono', monospace; }
-.flux-card-id { color: var(--accent); font-size: 10px; font-family: 'JetBrains Mono', monospace; }
+.flux-url {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
+  gap: 0;
+  font-family: 'JetBrains Mono', monospace; font-size: 9px;
+  line-height: 1.6;
+}
+.flux-path { color: var(--text-dim); }
+.flux-segment { color: var(--accent); }
 
 .flux-channel {
   display: flex; flex-direction: column;
@@ -469,14 +503,16 @@
 
 .wallet-card {
   width: 100%; max-width: 320px;
-  height: 190px;
+  min-height: 190px;
   border-radius: 16px;
-  padding: 20px;
+  padding: 16px 20px;
   position: relative; overflow: hidden;
   display: flex; flex-direction: column; justify-content: space-between;
+  gap: 8px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3);
   transition: transform 0.3s;
 }
+.wallet-card--with-code { min-height: 220px; }
 .wallet-card--animating { animation: card-update 0.4s ease; }
 
 .wallet-card__shine {
@@ -558,6 +594,8 @@
 .vf-name { font-size: 11px; flex: 1; color: var(--text-muted); }
 .vf-tag { font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 .vf-tag--required { background: rgba(239,68,68,0.15); color: var(--danger); }
+.vf-tag--custom { background: rgba(167,139,250,0.12); color: #a78bfa; border: 1px solid rgba(167,139,250,0.25); }
+.vf-row--custom { background: rgba(167,139,250,0.04); }
 .vf-error-msg { font-size: 10px; color: var(--danger); }
 
 /* ===================== JSON VIEWER ===================== */
@@ -580,8 +618,8 @@
 .json-viewer__body {
   padding: 12px; font-size: 11px;
   overflow-x: auto; line-height: 1.6;
-  max-height: 200px; overflow-y: auto;
   color: var(--text);
+  white-space: pre;
 }
 
 .json-key { color: #7dd3fc; }
@@ -601,6 +639,74 @@
 }
 .icon-btn:hover { border-color: var(--border); color: var(--text); }
 .icon-btn--active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+/* ===================== CARD CUSTOM FIELDS ===================== */
+.wallet-card__custom-fields {
+  display: flex; flex-direction: column; gap: 3px;
+}
+.wallet-card__custom-field {
+  display: flex; align-items: center; gap: 6px;
+}
+.wallet-card__custom-label {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: rgba(255,255,255,0.5);
+}
+.wallet-card__custom-value {
+  font-size: 12px; font-weight: 600;
+  color: rgba(255,255,255,0.9);
+}
+.wallet-card__points-compact {
+  font-size: 12px; font-weight: 600;
+  color: rgba(255,255,255,0.8);
+}
+
+/* ===================== BARCODE / QR ===================== */
+.wallet-card__code-zone {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px; padding: 8px;
+  margin: 0 -4px;
+}
+
+.wallet-barcode {
+  display: flex; align-items: stretch;
+  height: 34px; width: 100%;
+  background: rgba(0,0,0,0.15);
+  border-radius: 3px; overflow: hidden;
+  justify-content: center;
+}
+.barcode-bar {
+  background: rgba(255,255,255,0.92);
+  height: 100%;
+}
+.barcode-gap {
+  background: transparent;
+  height: 100%;
+}
+
+.wallet-qrcode {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  width: 48px; height: 48px;
+  padding: 3px;
+  background: rgba(255,255,255,0.9);
+  border-radius: 4px;
+}
+.qr-cell {
+  background: rgba(255,255,255,0.9);
+  border-radius: 0.5px;
+}
+.qr-cell--on {
+  background: #111;
+}
+
+.wallet-card__code-token {
+  font-size: 9px;
+  font-family: 'JetBrains Mono', monospace;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 0.05em;
+}
 
 /* ===================== LOG PANEL ===================== */
 .log-panel {
