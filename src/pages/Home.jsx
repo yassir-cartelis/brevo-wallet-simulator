@@ -50,20 +50,22 @@ export default function Home({ onStart }) {
             <span className="home__logo-cw">Captain Wallet</span>
             <span className="home__logo-sep">by</span>
             <span className="home__logo-brevo">Brevo</span>
+            <span className="home__logo-sep">·</span>
+            <span className="home__logo-cartelis">Cartelis</span>
           </div>
 
           <h1 className="home__title">
             Simulez votre intégration<br />
-            <span className="home__title-accent">Wallet</span>
+            <span className="home__title-accent">Wallet en 3 étapes</span>
           </h1>
 
           <p className="home__subtitle">
-            Un outil de formation et de génération de spécifications techniques pour les intégrations Captain Wallet.
-            Configurez, testez et documentez vos flux API sans écrire une ligne de code.
+            Outil de formation interne — configurez vos flux API Captain Wallet,
+            testez votre mapping de données et exportez la spécification technique pour vos développeurs.
           </p>
 
-          <button className="btn-primary btn-primary--large" onClick={onStart}>
-            Démarrer une simulation
+          <button className="btn-cta" onClick={onStart}>
+            Démarrer la simulation
             <span className="btn-arrow">→</span>
           </button>
         </div>
@@ -157,7 +159,7 @@ export default function Home({ onStart }) {
           <p className="home__cta-sub">
             Configurez votre projet, simulez les flux et exportez votre spécification technique.
           </p>
-          <button className="btn-primary btn-primary--large" onClick={onStart}>
+          <button className="btn-cta" onClick={onStart}>
             Commencer la simulation
             <span className="btn-arrow">→</span>
           </button>
@@ -166,7 +168,11 @@ export default function Home({ onStart }) {
 
       {/* ── Footer ──────────────────────────────────────────────────────────── */}
       <footer className="home__footer">
-        <span>Captain Wallet by Brevo — Outil interne de formation et de spécification</span>
+        <span>Captain Wallet by Brevo</span>
+        <div className="home__footer-dot" />
+        <span>Outil interne Cartelis</span>
+        <div className="home__footer-dot" />
+        <span>Formation & Spécification</span>
       </footer>
     </div>
   )

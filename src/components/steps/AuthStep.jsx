@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { useProject } from '../../context/ProjectContext.jsx'
 import InfoBlock from '../InfoBlock.jsx'
 
@@ -17,6 +17,7 @@ export default function AuthStep({ onNext }) {
   const [loading, setLoading] = useState(false)
   const [response, setResponse] = useState(null)
   const [showSecret, setShowSecret] = useState(false)
+  const successRef = useRef(null)
 
   async function handleAuth() {
     if (!accountId || !projectId) return
@@ -30,6 +31,7 @@ export default function AuthStep({ onNext }) {
       access_token: t,
     })
     setLoading(false)
+    setTimeout(() => successRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100)
   }
 
   const requestPayload = {
@@ -251,7 +253,7 @@ export default function AuthStep({ onNext }) {
           </div>
 
           {isAuthenticated && (
-            <div className="auth-success">
+            <div className="auth-success" ref={successRef}>
               <div className="auth-success__icon">✓</div>
               <div className="auth-success__text">
                 <strong>Token obtenu avec succès</strong>
