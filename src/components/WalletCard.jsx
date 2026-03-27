@@ -1,23 +1,8 @@
 import React from 'react'
-import { MEMBER_LEVEL_COLORS } from '../data/brevoSchema.js'
 
-function getLevelColor(level) {
-  return MEMBER_LEVEL_COLORS[level] || '#6366f1'
-}
-
-function formatPoints(pts) {
-  if (!pts && pts !== 0) return '—'
-  return Number(pts).toLocaleString('fr-FR')
-}
-
-function truncateToken(token) {
-  const s = String(token)
-  if (s.length <= 14) return s
-  return `${s.slice(0, 6)}···${s.slice(-4)}`
-}
-
-function getNestedValue(obj, dotPath) {
-  return dotPath.split('.').reduce((acc, key) => acc?.[key], obj)
+function formatPoints(val) {
+  if (val === undefined || val === null || val === '') return null
+  return Number(val).toLocaleString('fr-FR')
 }
 
 function BarcodeVisual() {
@@ -25,11 +10,7 @@ function BarcodeVisual() {
   return (
     <div className="wallet-barcode">
       {pattern.map((w, i) => (
-        <div
-          key={i}
-          className={i % 2 === 0 ? 'barcode-bar' : 'barcode-gap'}
-          style={{ width: `${w * 3}px`, flexShrink: 0 }}
-        />
+        <div key={i} className={i % 2 === 0 ? 'barcode-bar' : 'barcode-gap'} style={{ width: `${w * 3}px` }} />
       ))}
     </div>
   )
@@ -40,148 +21,134 @@ function QRVisual({ token }) {
   const size = 7
   const cells = Array.from({ length: size * size }, (_, i) => {
     const row = Math.floor(i / size), col = i % size
-    // Finder patterns (top-left, top-right, bottom-left corners)
-    const inTopLeft = row < 3 && col < 3
-    const inTopRight = row < 3 && col >= size - 3
-    const inBottomLeft = row >= size - 3 && col < 3
-    if (inTopLeft || inTopRight || inBottomLeft) {
-      const lr = inTopLeft ? row : inTopRight ? row : row - (size - 3)
-      const lc = inTopLeft ? col : inTopRight ? col - (size - 3) : col
+    const inTL = row < 3 && col < 3
+    const inTR = row < 3 && col >= size - 3
+    const inBL = row >= size - 3 && col < 3
+    if (inTL || inTR || inBL) {
+      const lr = inTL ? row : inTR ? row : row - (size - 3)
+      const lc = inTL ? col : inTR ? col - (size - 3) : col
       return (lr === 0 || lr === 2 || lc === 0 || lc === 2) ? true : (lr === 1 && lc === 1)
     }
     return ((seed ^ (i * 6364136223846793005)) & 1) === 1
   })
   return (
     <div className="wallet-qrcode">
-      {cells.map((filled, i) => (
-        <div key={i} className={`qr-cell ${filled ? 'qr-cell--on' : ''}`} />
-      ))}
+      {cells.map((filled, i) => <div key={i} className={`qr-cell ${filled ? 'qr-cell--on' : ''}`} />)}
     </div>
   )
 }
 
-export default function WalletCard({ walletData, cardConfig, animating, fieldMeta }) {
-  const { color = '#6366f1', brandName = 'Ma Marque' } = cardConfig || {}
-  const d = walletData?.data || {}
-  const h = walletData?.holder || {}
-  const identifier = walletData?.identifier
+// walletData keys expected:
+//   firstname, lastname, email
+//   metadatas: { status, cardNumber, ... }
+//   counters: { points, visits, ... }
+//   barcode / qrcode (type field)
+export default function WalletCard({ walletData = {}, animating = false }) {
+  const firstname = walletData.firstname || ''
+  const lastname = walletData.lastname || ''
+  const email = walletData.email || ''
+  const meta = walletData.metadatas || {}
+  const counters = walletData.counters || {}
 
-  const levelBadge = d.memberLevel ? { label: d.memberLevel, color: getLevelColor(d.memberLevel) } : null
+  const hasName = firstname || lastname
+  const points = counters.points
 
-  // Find barcode/qrcode mapped fields
-  const codeFields = Object.entries(fieldMeta || {}).filter(([, meta]) =>
-    meta.type === 'barcode' || meta.type === 'qrcode'
-  ).map(([path, meta]) => ({
-    path,
-    type: meta.type,
-    value: getNestedValue(walletData || {}, path)
-  })).filter(f => f.value !== undefined && f.value !== null && f.value !== '')
+  const isEmpty = !hasName && !email && !points && Object.keys(meta).length === 0
 
-  // Find custom data fields (not standard known ones)
-  const knownDataFields = new Set(['loyaltyPoints','memberLevel','expiryDate','cardNumber','balance','customField1','customField2'])
-  const customDataFields = Object.entries(d).filter(([k]) => !knownDataFields.has(k) &&
-    !codeFields.some(cf => cf.path === `data.${k}`)
-  )
+  // Accent color from metadatas if provided
+  const accentColor = meta.color || '#6366f1'
 
   const gradientStyle = {
-    background: `linear-gradient(135deg, ${color} 0%, ${adjustColor(color, -30)} 100%)`
+    background: `linear-gradient(135deg, ${accentColor} 0%, ${darken(accentColor, 30)} 100%)`,
   }
 
-  const hasCodeField = codeFields.length > 0
+  // Find barcode/qrcode fields
+  const barcodeField = Object.entries(walletData).find(([, v]) => v?.__type === 'barcode')
+  const qrcodeField = Object.entries(walletData).find(([, v]) => v?.__type === 'qrcode')
 
   return (
     <div
-      className={`wallet-card ${animating ? 'wallet-card--animating' : ''} ${hasCodeField ? 'wallet-card--with-code' : ''}`}
+      className={`wallet-card ${animating ? 'wallet-card--animating' : ''} ${isEmpty ? 'wallet-card--empty' : ''}`}
       style={gradientStyle}
     >
-      {/* Card Header */}
+      {isEmpty && (
+        <div className="wallet-card__placeholder-msg">
+          Activez le toggle 👁 sur vos champs pour les afficher ici
+        </div>
+      )}
+
+      {/* Header */}
       <div className="wallet-card__header">
-        <div className="wallet-card__brand">{brandName}</div>
-        {levelBadge && (
-          <div className="wallet-card__level" style={{ background: levelBadge.color, color: '#000' }}>
-            {levelBadge.label}
-          </div>
+        <div className="wallet-card__brand">
+          {meta.brand || 'Ma Marque'}
+        </div>
+        {meta.memberLevel && (
+          <div className="wallet-card__level">{meta.memberLevel}</div>
         )}
       </div>
 
       {/* Holder */}
-      <div className="wallet-card__holder">
-        <div className="wallet-card__name">
-          {h.firstName || h.lastName
-            ? `${h.firstName || ''} ${h.lastName || ''}`.trim()
-            : <span className="wallet-card__placeholder">Prénom Nom</span>
-          }
+      {hasName && (
+        <div className="wallet-card__holder">
+          <div className="wallet-card__name">
+            {[firstname, lastname].filter(Boolean).join(' ')}
+          </div>
+          {email && <div className="wallet-card__email">{email}</div>}
         </div>
-        {h.email && <div className="wallet-card__email">{h.email}</div>}
-      </div>
+      )}
 
-      {/* Main metric: points (only if no code field taking center) */}
-      {d.loyaltyPoints !== undefined && !hasCodeField && (
+      {/* Points */}
+      {points !== undefined && points !== null && points !== '' && (
         <div className="wallet-card__points">
-          <div className="wallet-card__points-value">{formatPoints(d.loyaltyPoints)}</div>
+          <div className="wallet-card__points-value">{formatPoints(points)}</div>
           <div className="wallet-card__points-label">points</div>
         </div>
       )}
 
-      {/* Points compact if code present */}
-      {d.loyaltyPoints !== undefined && hasCodeField && (
-        <div className="wallet-card__points-compact">
-          {formatPoints(d.loyaltyPoints)} pts
+      {/* Custom metadatas (excluding internal ones) */}
+      {Object.entries(meta)
+        .filter(([k]) => !['color', 'brand', 'memberLevel'].includes(k))
+        .slice(0, 3)
+        .map(([k, v]) => (
+          <div key={k} className="wallet-card__meta-field">
+            <span className="wallet-card__meta-label">{k}</span>
+            <span className="wallet-card__meta-value">{String(v)}</span>
+          </div>
+        ))}
+
+      {/* Other counters (not points) */}
+      {Object.entries(counters)
+        .filter(([k]) => k !== 'points')
+        .map(([k, v]) => (
+          <div key={k} className="wallet-card__meta-field">
+            <span className="wallet-card__meta-label">{k}</span>
+            <span className="wallet-card__meta-value">{String(v)}</span>
+          </div>
+        ))}
+
+      {/* Barcode / QR */}
+      {barcodeField && (
+        <div className="wallet-card__code-zone">
+          <BarcodeVisual />
         </div>
       )}
-
-      {/* Custom data fields (non-standard) */}
-      {customDataFields.length > 0 && !hasCodeField && (
-        <div className="wallet-card__custom-fields">
-          {customDataFields.slice(0, 2).map(([k, v]) => (
-            <div key={k} className="wallet-card__custom-field">
-              <span className="wallet-card__custom-label">{k}</span>
-              <span className="wallet-card__custom-value">{String(v)}</span>
-            </div>
-          ))}
+      {qrcodeField && (
+        <div className="wallet-card__code-zone">
+          <QRVisual token={qrcodeField[1]?.value || 'token'} />
         </div>
       )}
-
-      {/* Barcode / QR code zone */}
-      {codeFields.map(({ path, type, value }) => (
-        <div key={path} className="wallet-card__code-zone">
-          {type === 'barcode' ? (
-            <>
-              <BarcodeVisual />
-              <div className="wallet-card__code-token">{truncateToken(value)}</div>
-            </>
-          ) : (
-            <>
-              <QRVisual token={value} />
-              <div className="wallet-card__code-token">{truncateToken(value)}</div>
-            </>
-          )}
-        </div>
-      ))}
-
-      {/* Footer */}
-      <div className="wallet-card__footer">
-        <div className="wallet-card__meta">
-          {d.cardNumber && <span className="wallet-card__card-number">{d.cardNumber}</span>}
-          {d.balance !== undefined && <span className="wallet-card__balance">{Number(d.balance).toFixed(2)} €</span>}
-        </div>
-        <div className="wallet-card__meta-right">
-          {d.expiryDate && <span className="wallet-card__expiry">Exp. {d.expiryDate}</span>}
-          {identifier && <span className="wallet-card__id">#{identifier}</span>}
-        </div>
-      </div>
 
       <div className="wallet-card__shine" />
     </div>
   )
 }
 
-function adjustColor(hex, amount) {
+function darken(hex, amount) {
   try {
     const num = parseInt(hex.replace('#', ''), 16)
-    const r = Math.min(255, Math.max(0, (num >> 16) + amount))
-    const g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + amount))
-    const b = Math.min(255, Math.max(0, (num & 0xff) + amount))
+    const r = Math.max(0, (num >> 16) - amount)
+    const g = Math.max(0, ((num >> 8) & 0xff) - amount)
+    const b = Math.max(0, (num & 0xff) - amount)
     return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`
   } catch {
     return hex
